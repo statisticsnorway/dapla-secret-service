@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>no.ssb.dapla</groupId>
+        <artifactId>application</artifactId>
+        <version>0.1-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>no.ssb.dapla.secret</groupId>
+    <artifactId>secret-service</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <properties>
+        <exec.mainClass>no.ssb.dapla.secret.Application</exec.mainClass>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>no.ssb.dapla.secret</groupId>
+            <artifactId>secret-service-protobuf</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.rodiontsev.maven.plugins</groupId>
+                <artifactId>build-info-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+            </plugin>
+        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <argLine>
+                            --add-opens no.ssb.dapla.secret/no.ssb.dapla.secret=ALL-UNNAMED
+                        </argLine>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
