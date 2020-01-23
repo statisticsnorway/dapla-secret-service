@@ -9,8 +9,12 @@ import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerConfiguration;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.accesslog.AccessLogSupport;
+import io.vertx.pgclient.PgConnectOptions;
+import io.vertx.pgclient.PgPool;
+import io.vertx.sqlclient.PoolOptions;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
+import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,12 +32,22 @@ public class Application extends DefaultHelidonApplication {
     public Application(Config config) {
         put(Config.class, config);
 
-        SecretRepository secretRepository = new SecretRepository();
+        // Create schema if not exists
+        createDatabaseSchemaIfNotExists(config.get("flyway"));
+
+        // Initialize vertx postgres client
+        PgPool pgPool = initPgPool(config.get("pgpool"));
+        put(PgPool.class, pgPool);
+
+        // Repository
+        SecretRepository secretRepository = new SecretRepository(pgPool);
         put(SecretRepository.class, secretRepository);
 
+        // Service
         SecretService secretService = new SecretService(secretRepository);
         put(SecretService.class, secretService);
 
+        // Grpc Server
         GrpcServer grpcserver = GrpcServer.create(
                 GrpcServerConfiguration.create(config.get("grpcserver")),
                 GrpcRouting.builder()
@@ -42,6 +56,7 @@ public class Application extends DefaultHelidonApplication {
         );
         put(GrpcServer.class, grpcserver);
 
+        // Routing
         Routing routing = Routing.builder()
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
                 .register(ProtobufJsonSupport.create())
@@ -50,6 +65,7 @@ public class Application extends DefaultHelidonApplication {
                 .build();
         put(Routing.class, routing);
 
+        // HTTP Server
         ServerConfiguration configuration = ServerConfiguration.builder(config.get("webserver")).build();
         WebServer webServer = WebServer.create(configuration, routing);
         put(WebServer.class, webServer);
@@ -68,5 +84,31 @@ public class Application extends DefaultHelidonApplication {
                     System.exit(1);
                     return null;
                 });
+    }
+
+    private void createDatabaseSchemaIfNotExists(Config flywayConfig) {
+        Flyway flyway = Flyway.configure()
+                .dataSource(
+                        flywayConfig.get("url").asString().orElse("jdbc:postgresql://localhost:15432/rdc"),
+                        flywayConfig.get("user").asString().orElse("rdc"),
+                        flywayConfig.get("password").asString().orElse("rdc")
+                )
+                .load();
+        flyway.migrate();
+    }
+
+    private PgPool initPgPool(Config pgPoolConfig) {
+        Config connectConfig = pgPoolConfig.get("connect-options");
+        PgConnectOptions connectOptions = new PgConnectOptions()
+                .setPort(connectConfig.get("port").asInt().orElse(15432))
+                .setHost(connectConfig.get("host").asString().orElse("localhost"))
+                .setDatabase(connectConfig.get("database").asString().orElse("rdc"))
+                .setUser(connectConfig.get("user").asString().orElse("rdc"))
+                .setPassword(connectConfig.get("password").asString().orElse("rdc"));
+
+        Config poolConfig = pgPoolConfig.get("pool-options");
+        PoolOptions poolOptions = new PoolOptions().setMaxSize(poolConfig.get("max-size").asInt().orElse(5));
+
+        return PgPool.pool(connectOptions, poolOptions);
     }
 }

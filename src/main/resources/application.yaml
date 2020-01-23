@@ -7,3 +7,18 @@ webserver:
 grpcserver:
   host: 0.0.0.0
   port: 10118 #TODO: Change this
+
+pgpool:
+  connect-options:
+    port: 15432
+    host: localhost
+    database: secret_service
+    user: secret_service
+    password: secret_service
+  pool-options:
+    max-size: 5
+
+flyway:
+  url: jdbc:postgresql://localhost:15432/secret_service
+  user: secret_service
+  password: secret_service
