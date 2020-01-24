@@ -1,32 +1,24 @@
 package no.ssb.dapla.secret;
 
-import io.grpc.stub.StreamObserver;
 import io.helidon.common.http.Http;
 import io.helidon.webserver.Handler;
 import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
-import no.ssb.dapla.secret.service.protobuf.CreateKeyRequest;
-import no.ssb.dapla.secret.service.protobuf.CreateKeyResponse;
-import no.ssb.dapla.secret.service.protobuf.DeleteKeyRequest;
-import no.ssb.dapla.secret.service.protobuf.DeleteKeyResponse;
-import no.ssb.dapla.secret.service.protobuf.GetKeyRequest;
-import no.ssb.dapla.secret.service.protobuf.GetKeyResponse;
 import no.ssb.dapla.secret.service.protobuf.PseudoKey;
-import no.ssb.dapla.secret.service.protobuf.SecretServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-public class SecretService extends SecretServiceGrpc.SecretServiceImplBase implements Service {
+public class SecretServiceHttp implements Service {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SecretService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SecretServiceHttp.class);
 
     final SecretRepository repository;
 
-    public SecretService(SecretRepository repository) {
+    public SecretServiceHttp(SecretRepository repository) {
         this.repository = repository;
     }
 
@@ -84,58 +76,6 @@ public class SecretService extends SecretServiceGrpc.SecretServiceImplBase imple
                 .exceptionally(throwable -> {
                     LOG.error(String.format("Failed to delete secret with id: %s", secretId), throwable);
                     response.status(Http.Status.INTERNAL_SERVER_ERROR_500).send(throwable.getMessage());
-                    return null;
-                });
-    }
-
-    @Override
-    public void getKey(GetKeyRequest request, StreamObserver<GetKeyResponse> responseObserver) {
-        String keyId = request.getKeyId();
-        repository.getKey(keyId)
-                .orTimeout(10, TimeUnit.SECONDS)
-                .thenAccept(pseudoKey -> {
-                    GetKeyResponse.Builder responseBuilder = GetKeyResponse.newBuilder();
-                    if (pseudoKey != null) {
-                        responseBuilder.setKey(pseudoKey);
-                        responseBuilder.setKeyId(keyId);
-                    }
-                    responseObserver.onNext(responseBuilder.build());
-                    responseObserver.onCompleted();
-                })
-                .exceptionally(throwable -> {
-                    LOG.error(String.format("Failed to get key with id: %s", keyId), throwable);
-                    responseObserver.onError(throwable);
-                    return null;
-                });
-    }
-
-    @Override
-    public void createKey(CreateKeyRequest request, StreamObserver<CreateKeyResponse> responseObserver) {
-        String keyId = request.getKeyId();
-        repository.createOrUpdateKey(keyId, request.getKey())
-                .orTimeout(10, TimeUnit.SECONDS)
-                .thenRun(() -> {
-                    responseObserver.onNext(CreateKeyResponse.newBuilder().setKeyId(keyId).build());
-                    responseObserver.onCompleted();
-                })
-                .exceptionally(throwable -> {
-                    LOG.error(String.format("Failed to create key with id: %s", keyId), throwable);
-                    responseObserver.onError(throwable);
-                    return null;
-                });
-    }
-
-    @Override
-    public void deleteKey(DeleteKeyRequest request, StreamObserver<DeleteKeyResponse> responseObserver) {
-        repository.deleteKey(request.getKeyId())
-                .orTimeout(10, TimeUnit.SECONDS)
-                .thenAccept(rowsAffected -> {
-                    responseObserver.onNext(DeleteKeyResponse.newBuilder().setRowsAffected(rowsAffected).build());
-                    responseObserver.onCompleted();
-                })
-                .exceptionally(throwable -> {
-                    LOG.error(String.format("Failed to delete key with id: %s", request.getKeyId()), throwable);
-                    responseObserver.onError(throwable);
                     return null;
                 });
     }

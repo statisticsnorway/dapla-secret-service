@@ -43,25 +43,29 @@ public class Application extends DefaultHelidonApplication {
         SecretRepository secretRepository = new SecretRepository(pgPool);
         put(SecretRepository.class, secretRepository);
 
-        // Service
-        SecretService secretService = new SecretService(secretRepository);
-        put(SecretService.class, secretService);
+        // Grpc Service
+        SecretServiceGrpc grpcService = new SecretServiceGrpc(secretRepository);
+        put(SecretServiceGrpc.class, grpcService);
 
         // Grpc Server
         GrpcServer grpcserver = GrpcServer.create(
                 GrpcServerConfiguration.create(config.get("grpcserver")),
                 GrpcRouting.builder()
-                        .register(secretService)
+                        .register(grpcService)
                         .build()
         );
         put(GrpcServer.class, grpcserver);
+
+        // HTTP Service
+        SecretServiceHttp httpService = new SecretServiceHttp(secretRepository);
+        put(SecretServiceHttp.class, httpService);
 
         // Routing
         Routing routing = Routing.builder()
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
-                .register("/secret", secretService)
+                .register("/secret", httpService)
                 .build();
         put(Routing.class, routing);
 
