@@ -16,7 +16,7 @@ import java.util.concurrent.TimeoutException;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(IntegrationTestExtension.class)
-class SecretServiceTest {
+class SecretServiceHttpTest {
 
     @Inject
     Application application;
