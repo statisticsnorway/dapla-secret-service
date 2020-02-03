@@ -1,12 +1,12 @@
 webserver:
-  port: 10110 #TODO: Change this
+  port: 10120
   host: 0.0.0.0
   access-log:
     format: "%h %u %t %r %s %b %{Referer}i %T"
 
 grpcserver:
   host: 0.0.0.0
-  port: 10118 #TODO: Change this
+  port: 10128
 
 pgpool:
   connect-options:

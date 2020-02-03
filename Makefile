@@ -1,11 +1,19 @@
 SHELL:=/usr/bin/env bash
 
 .PHONY: default
+.PHONY: start-service
+.PHONY: stop-service
 .PHONY: start-db
 .PHONY: stop-db
 .PHONY: help
 
 default: | help
+
+start-service: ## Start the service
+	docker-compose up -d --build secret-service
+
+stop-service: ## Stop the service
+	docker-compose down
 
 start-db: ## Start the database
 	docker-compose up -d --build postgres

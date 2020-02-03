@@ -6,7 +6,18 @@ services:
     image: postgres:12-alpine
     ports:
       - 15432:5432
-    environment:
-      POSTGRES_PASSWORD: secret
     volumes:
     - ./localenv/init-database.sql:/docker-entrypoint-initdb.d/init.sql
+
+  secret-service:
+    build: .
+    image: dapla-secret-service:dev
+    environment:
+      PGPOOL_CONNECT_dash_OPTIONS_HOST: postgres
+      PGPOOL_CONNECT_dash_OPTIONS_PORT: 5432
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/secret_service
+    ports:
+      - 10120:10120
+      - 10128:10128
+    depends_on:
+      - postgres
