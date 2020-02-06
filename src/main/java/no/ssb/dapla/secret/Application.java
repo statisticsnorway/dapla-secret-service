@@ -12,6 +12,7 @@ import io.helidon.webserver.accesslog.AccessLogSupport;
 import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.PoolOptions;
+import no.ssb.dapla.readiness.Readiness;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.flywaydb.core.Flyway;
@@ -32,15 +33,29 @@ public class Application extends DefaultHelidonApplication {
     public Application(Config config) {
         put(Config.class, config);
 
+        // Initialize vertx postgres client
+        PgPool pgPool = initPgPool(config.get("pgpool"));
+
+        String host = config.get("pgpool.connect-options.host").asString().orElse("no-host");
+        int port = config.get("pgpool.connect-options.port").asInt().orElse(-1);
+
+        // Initialize readiness
+        Readiness readiness = Readiness.newBuilder(new PostgresConnectivityCheck(pgPool, host, port))
+                .setBlockingReadinessCheckMaxAttempts(config.get("readiness.db-connectivity-attempts").asInt().orElse(1))
+                .setMinSampleInterval(config.get("readiness.min-sample-interval").asInt().orElse(0))
+                .build();
+
+        // Block until ready
+        readiness.blockingReadinessCheck();
+
         // Create schema if not exists
         createDatabaseSchemaIfNotExists(config.get("flyway"));
 
-        // Initialize vertx postgres client
-        PgPool pgPool = initPgPool(config.get("pgpool"));
-        put(PgPool.class, pgPool);
+        PgPool readinessAwarePgPool = new ReadinessAwarePgPool(pgPool, readiness);
+        put(PgPool.class, readinessAwarePgPool);
 
         // Repository
-        SecretRepository secretRepository = new SecretRepository(pgPool);
+        SecretRepository secretRepository = new SecretRepository(readinessAwarePgPool);
         put(SecretRepository.class, secretRepository);
 
         // Grpc Service
@@ -56,6 +71,8 @@ public class Application extends DefaultHelidonApplication {
         );
         put(GrpcServer.class, grpcserver);
 
+        HealthService healthService = new HealthService(readiness, () -> get(WebServer.class));
+
         // HTTP Service
         SecretServiceHttp httpService = new SecretServiceHttp(secretRepository);
         put(SecretServiceHttp.class, httpService);
@@ -65,6 +82,7 @@ public class Application extends DefaultHelidonApplication {
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
+                .register(healthService)
                 .register("/secret", httpService)
                 .build();
         put(Routing.class, routing);

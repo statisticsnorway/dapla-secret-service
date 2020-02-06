@@ -8,6 +8,10 @@ grpcserver:
   host: 0.0.0.0
   port: 10128
 
+readiness:
+  db-connectivity-attempts: 120
+  min-sample-interval: 2000
+
 pgpool:
   connect-options:
     port: 15432

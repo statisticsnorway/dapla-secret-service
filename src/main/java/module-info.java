@@ -42,6 +42,7 @@ module no.ssb.dapla.secret {
     requires javax.inject; // required by io.helidon.grpc.server
     requires com.google.protobuf.util;
     requires no.ssb.helidon.application;
+    requires no.ssb.dapla.readiness;
 
     opens db.migration; // flyway needs this to read migration files
 
