@@ -1,0 +1,25 @@
+webserver:
+  port: -1
+  host: "0.0.0.0"
+
+grpcserver:
+  port: -1
+
+readiness:
+  db-connectivity-attempts: 120
+  min-sample-interval: 2000
+
+pgpool:
+  connect-options:
+    port: 5432
+    host: postgres
+    database: secret_service
+    user: secret_service
+    password: secret_service
+  pool-options:
+    max-size: 5
+
+flyway:
+  url: jdbc:postgresql://postgres:5432/secret_service
+  user: secret_service
+  password: secret_service
