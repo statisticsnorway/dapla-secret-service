@@ -57,21 +57,21 @@ steps:
     depends_on:
       - test
 
-#  - name: publish-docker
-#    image: plugins/gcr
-#    settings:
-#      repo: prod-bip/dataset-access
-#      registry: eu.gcr.io
-#      tags: "${DRONE_BRANCH}-${DRONE_COMMIT_SHA:0:8}"
-#      json_key:
-#        from_secret: gcr_credentials
-#    when:
-#      branch:
-#        - master
-#      event:
-#        - push
-#    depends_on:
-#      - test
+  - name: publish-docker
+    image: plugins/gcr
+    settings:
+      repo: prod-bip/dapla-secret-service
+      registry: eu.gcr.io
+      tags: "${DRONE_BRANCH}-${DRONE_COMMIT_SHA:0:8}"
+      json_key:
+        from_secret: gcr_credentials
+    when:
+      branch:
+        - master
+      event:
+        - push
+    depends_on:
+      - test
 
   - name: slack
     image: plugins/slack
@@ -83,7 +83,7 @@ steps:
       status: [ success, failure ]
     depends_on:
       - sonarqube
-#      - publish-docker
+      - publish-docker
 
   # Rebuild cache if it has changed with this build
   - name: rebuild-cache
