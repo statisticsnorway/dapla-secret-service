@@ -36,7 +36,7 @@ ENV PATH=/jdk/bin:$PATH
 
 WORKDIR /app
 
-EXPOSE 10120
-EXPOSE 10128
+EXPOSE 10150
+EXPOSE 10158
 
 CMD ["java", "-p", "/app/lib", "-m", "no.ssb.dapla.secret/no.ssb.dapla.secret.Application"]

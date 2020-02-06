@@ -17,7 +17,7 @@ services:
       PGPOOL_CONNECT_dash_OPTIONS_PORT: 5432
       FLYWAY_URL: jdbc:postgresql://postgres:5432/secret_service
     ports:
-      - 10120:10120
-      - 10128:10128
+      - 10150:10150
+      - 10158:10158
     depends_on:
       - postgres
