@@ -1,0 +1,8 @@
+POST http://localhost:10150/secret/an-id?namespace=/some/namespace&state=RAW&valuation=SENSITIVE&privilege=PSEUDONYMIZE
+Content-Type: application/json
+
+{
+	"id": "an-id",
+	"type": "AES32"
+}
+###

@@ -29,6 +29,8 @@ module no.ssb.dapla.secret {
     requires grpc.protobuf;
     requires io.helidon.grpc.server;
     requires java.logging;
+    requires com.google.common;
+    requires org.checkerframework.checker.qual;
 
     /*
      * Not so well documented requirements are declared here to force fail-fast with proper error message if
