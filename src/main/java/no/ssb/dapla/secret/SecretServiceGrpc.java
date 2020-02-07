@@ -46,7 +46,7 @@ public class SecretServiceGrpc extends no.ssb.dapla.secret.service.protobuf.Secr
     @Override
     public void createKey(CreateKeyRequest request, StreamObserver<CreateKeyResponse> responseObserver) {
         String keyId = request.getKeyId();
-        repository.createOrUpdateKey(keyId, request.getKey())
+        repository.createKey(keyId, request.getKey())
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenRun(() -> {
                     responseObserver.onNext(CreateKeyResponse.newBuilder().setKeyId(keyId).build());

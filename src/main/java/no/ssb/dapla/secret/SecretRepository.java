@@ -20,11 +20,11 @@ public class SecretRepository {
         this.pgClient = pgClient;
     }
 
-    public CompletableFuture<Void> createOrUpdateKey(String id, PseudoKey key) {
+    public CompletableFuture<Void> createKey(String id, PseudoKey key) {
         JsonObject value = (JsonObject) Json.decodeValue(ProtobufJsonUtils.toString(key));
         CompletableFuture<Void> future = new CompletableFuture<>();
         pgClient.preparedQuery(
-                "INSERT INTO secret (id, document) VALUES($1, $2) ON CONFLICT (id) DO UPDATE SET document = $2",
+                "INSERT INTO secret (id, document) VALUES($1, $2) ON CONFLICT (id) DO NOTHING",
                 Tuple.tuple().addString(id).addValue(value),
                 asyncResult -> {
                     if (asyncResult.failed()) {

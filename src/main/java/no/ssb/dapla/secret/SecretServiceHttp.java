@@ -25,7 +25,7 @@ public class SecretServiceHttp implements Service {
     @Override
     public void update(Routing.Rules rules) {
         rules.get("/{secretId}", this::httpGet);
-        rules.put("/{secretId}", Handler.create(PseudoKey.class, this::httpPut));
+        rules.post("/{secretId}", Handler.create(PseudoKey.class, this::httpPost));
         rules.delete("/{secretId}", this::httpDelete);
     }
 
@@ -47,9 +47,9 @@ public class SecretServiceHttp implements Service {
                 });
     }
 
-    void httpPut(ServerRequest request, ServerResponse response, PseudoKey pseudoKey) {
+    void httpPost(ServerRequest request, ServerResponse response, PseudoKey pseudoKey) {
         String secretId = request.path().param("secretId");
-        repository.createOrUpdateKey(secretId, pseudoKey)
+        repository.createKey(secretId, pseudoKey)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenRun(() -> {
                     response.headers().add("Location", String.format("/secret/%s", secretId));

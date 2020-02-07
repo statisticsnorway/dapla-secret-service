@@ -40,7 +40,7 @@ class SecretServiceGrpcTest {
     }
 
     void repositoryCreate(String secretId, PseudoKey key) {
-        application.get(SecretRepository.class).createOrUpdateKey(secretId, key).join();
+        application.get(SecretRepository.class).createKey(secretId, key).join();
     }
 
     @Test
@@ -53,14 +53,14 @@ class SecretServiceGrpcTest {
     }
 
     @Test
-    void thatUpsertWorks() {
-        repositoryCreate("id-to-update", PseudoKey.newBuilder().setKey("key-to-update").build());
+    void thatCreateDoesntUpsert() {
+        PseudoKey initialKey = PseudoKey.newBuilder().setKey("key-to-update").build();
+        repositoryCreate("id-initial-key", initialKey);
 
-        PseudoKey updatedKey = PseudoKey.newBuilder().setKey("key-updated").build();
-        CreateKeyRequest updateKeyRequest = CreateKeyRequest.newBuilder().setKeyId("id-to-update").setKey(updatedKey).build();
+        CreateKeyRequest updateKeyRequest = CreateKeyRequest.newBuilder().setKeyId("id-initial-key").setKey(PseudoKey.newBuilder().setKey("key-new").build()).build();
         CreateKeyResponse response = SecretServiceGrpc.newBlockingStub(channel).createKey(updateKeyRequest);
-        assertThat(response.getKeyId()).isEqualTo("id-to-update");
-        assertThat(repositoryGet("id-to-update")).isEqualTo(updatedKey);
+        assertThat(response.getKeyId()).isEqualTo("id-initial-key");
+        assertThat(repositoryGet("id-initial-key")).isEqualTo(initialKey);
     }
 
     @Test

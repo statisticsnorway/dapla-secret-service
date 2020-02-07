@@ -1,6 +1,7 @@
 package no.ssb.dapla.secret;
 
 import no.ssb.dapla.secret.service.protobuf.PseudoKey;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.ResponseHelper;
 import no.ssb.testing.helidon.TestClient;
@@ -9,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -34,28 +38,28 @@ class SecretServiceHttpTest {
     }
 
     void repositoryCreate(String secretId, PseudoKey key) {
-        application.get(SecretRepository.class).createOrUpdateKey(secretId, key).join();
+        application.get(SecretRepository.class).createKey(secretId, key).join();
     }
 
     @Test
-    void thatPutWorks() {
+    void thatPostWorks() {
         PseudoKey keyToCreate = PseudoKey.newBuilder().setKey("a-very-secret-key").build();
-        ResponseHelper<String> responseHelper = testClient.put("/secret/123-456-789", keyToCreate).expect201Created();
+        ResponseHelper<String> responseHelper = testClient.post("/secret/123-456-789", HttpRequest.BodyPublishers.ofString(ProtobufJsonUtils.toString(keyToCreate), StandardCharsets.UTF_8), HttpResponse.BodyHandlers.ofString()).expect201Created();
 
         assertThat(responseHelper.response().headers().firstValue("Location")).contains("/secret/123-456-789");
         assertThat(repositoryGet("123-456-789")).isEqualTo(keyToCreate);
     }
 
     @Test
-    void thatUpsertWorks() {
+    void thatPostDoesntUpsert() {
         PseudoKey initialKey = PseudoKey.newBuilder().setKey("key-inital").build();
-        repositoryCreate("id-to-upsert", initialKey);
+        repositoryCreate("id-initial", initialKey);
 
-        PseudoKey updatedKey = PseudoKey.newBuilder().setKey("key-updated").build();
-        ResponseHelper<String> responseHelper = testClient.put("/secret/id-to-upsert", updatedKey).expect201Created();
+        PseudoKey newKey = PseudoKey.newBuilder().setKey("key-updated").build();
+        ResponseHelper<String> responseHelper = testClient.post("/secret/id-initial", HttpRequest.BodyPublishers.ofString(ProtobufJsonUtils.toString(newKey), StandardCharsets.UTF_8), HttpResponse.BodyHandlers.ofString()).expect201Created();
 
-        assertThat(responseHelper.response().headers().firstValue("Location")).contains("/secret/id-to-upsert");
-        assertThat(repositoryGet("id-to-upsert")).isEqualTo(updatedKey);
+        assertThat(responseHelper.response().headers().firstValue("Location")).contains("/secret/id-initial");
+        assertThat(repositoryGet("id-initial")).isEqualTo(initialKey);
     }
 
     @Test
