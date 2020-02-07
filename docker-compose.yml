@@ -2,22 +2,42 @@ version: '3.7'
 
 services:
 
-  postgres:
+  secret-postgres:
     image: postgres:12-alpine
     ports:
       - 15432:5432
     volumes:
-    - ./localenv/init-database.sql:/docker-entrypoint-initdb.d/init.sql
+    - ./localenv/init-secret-database.sql:/docker-entrypoint-initdb.d/init.sql
+
+  auth-postgres:
+    image: postgres:12-alpine
+    ports:
+      - 15442:5432
+    volumes:
+    - ./localenv/init-auth-database.sql:/docker-entrypoint-initdb.d/init.sql
+
+  dataset-access-service:
+    image: eu.gcr.io/prod-bip/dataset-access:master-e5414b9f
+    environment:
+      PGPOOL_CONNECT_dash_OPTIONS_HOST: auth-postgres
+      PGPOOL_CONNECT_dash_OPTIONS_PORT: 5432
+      FLYWAY_URL: jdbc:postgresql://auth-postgres:5432/rdc
+    ports:
+      - 20100:10100
+      - 20108:10108
+    depends_on:
+      - auth-postgres
 
   secret-service:
     build: .
     image: dapla-secret-service:dev
     environment:
-      PGPOOL_CONNECT_dash_OPTIONS_HOST: postgres
+      PGPOOL_CONNECT_dash_OPTIONS_HOST: secret-postgres
       PGPOOL_CONNECT_dash_OPTIONS_PORT: 5432
-      FLYWAY_URL: jdbc:postgresql://postgres:5432/secret_service
+      FLYWAY_URL: jdbc:postgresql://secret-postgres:5432/secret_service
     ports:
       - 10150:10150
       - 10158:10158
     depends_on:
-      - postgres
+      - secret-postgres
+      - dataset-access-service
