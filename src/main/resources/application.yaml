@@ -26,3 +26,7 @@ flyway:
   url: jdbc:postgresql://localhost:15432/secret_service
   user: secret_service
   password: secret_service
+
+auth-service:
+  host: localhost
+  port: 10108

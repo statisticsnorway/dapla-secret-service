@@ -1,25 +1,29 @@
 package no.ssb.dapla.secret;
 
 import io.grpc.stub.StreamObserver;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
 import no.ssb.dapla.secret.service.protobuf.CreateKeyRequest;
 import no.ssb.dapla.secret.service.protobuf.CreateKeyResponse;
 import no.ssb.dapla.secret.service.protobuf.DeleteKeyRequest;
 import no.ssb.dapla.secret.service.protobuf.DeleteKeyResponse;
 import no.ssb.dapla.secret.service.protobuf.GetKeyRequest;
 import no.ssb.dapla.secret.service.protobuf.GetKeyResponse;
+import no.ssb.dapla.secret.service.protobuf.SecretServiceGrpc.SecretServiceImplBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-public class SecretServiceGrpc extends no.ssb.dapla.secret.service.protobuf.SecretServiceGrpc.SecretServiceImplBase {
+public class SecretServiceGrpc extends SecretServiceImplBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(SecretServiceGrpc.class);
 
     final SecretRepository repository;
+    final AuthServiceFutureStub authService;
 
-    public SecretServiceGrpc(SecretRepository repository) {
+    public SecretServiceGrpc(SecretRepository repository, AuthServiceFutureStub authService) {
         this.repository = repository;
+        this.authService = authService;
     }
 
     @Override

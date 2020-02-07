@@ -1,7 +1,12 @@
 package no.ssb.dapla.secret;
 
+import io.grpc.stub.StreamObserver;
+import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
+import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.secret.service.protobuf.PseudoKey;
-import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
+import no.ssb.testing.helidon.GrpcMockRegistry;
+import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
 import no.ssb.testing.helidon.ResponseHelper;
 import no.ssb.testing.helidon.TestClient;
@@ -10,15 +15,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import javax.inject.Inject;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@GrpcMockRegistryConfig(SecretServiceHttpTest.SecretServiceTestMockRegistry.class)
 @ExtendWith(IntegrationTestExtension.class)
 class SecretServiceHttpTest {
 
@@ -27,6 +31,8 @@ class SecretServiceHttpTest {
 
     @Inject
     TestClient testClient;
+
+    private static final Set<String> ACCESS = Set.of("a-user");
 
     @BeforeEach
     void clearSecretRepository() throws InterruptedException, ExecutionException, TimeoutException {
@@ -44,7 +50,7 @@ class SecretServiceHttpTest {
     @Test
     void thatPostWorks() {
         PseudoKey keyToCreate = PseudoKey.newBuilder().setKey("a-very-secret-key").build();
-        ResponseHelper<String> responseHelper = testClient.post("/secret/123-456-789", HttpRequest.BodyPublishers.ofString(ProtobufJsonUtils.toString(keyToCreate), StandardCharsets.UTF_8), HttpResponse.BodyHandlers.ofString()).expect201Created();
+        ResponseHelper<String> responseHelper = testClient.post("/secret/123-456-789", keyToCreate).expect201Created();
 
         assertThat(responseHelper.response().headers().firstValue("Location")).contains("/secret/123-456-789");
         assertThat(repositoryGet("123-456-789")).isEqualTo(keyToCreate);
@@ -56,7 +62,7 @@ class SecretServiceHttpTest {
         repositoryCreate("id-initial", initialKey);
 
         PseudoKey newKey = PseudoKey.newBuilder().setKey("key-updated").build();
-        ResponseHelper<String> responseHelper = testClient.post("/secret/id-initial", HttpRequest.BodyPublishers.ofString(ProtobufJsonUtils.toString(newKey), StandardCharsets.UTF_8), HttpResponse.BodyHandlers.ofString()).expect201Created();
+        ResponseHelper<String> responseHelper = testClient.post("/secret/id-initial", newKey).expect201Created();
 
         assertThat(responseHelper.response().headers().firstValue("Location")).contains("/secret/id-initial");
         assertThat(repositoryGet("id-initial")).isEqualTo(initialKey);
@@ -86,4 +92,24 @@ class SecretServiceHttpTest {
     void thatDeleteReturns404WhenNoSecretIsFound() {
         testClient.delete("/secret/id-non-existing").expect404NotFound();
     }
+
+    public static class SecretServiceTestMockRegistry extends GrpcMockRegistry {
+
+        public SecretServiceTestMockRegistry() {
+            add(new AuthServiceGrpc.AuthServiceImplBase() {
+                @Override
+                public void hasAccess(AccessCheckRequest request, StreamObserver<AccessCheckResponse> responseObserver) {
+                    AccessCheckResponse.Builder responseBuilder = AccessCheckResponse.newBuilder();
+
+                    if (ACCESS.contains(request.getUserId())) {
+                        responseBuilder.setAllowed(true);
+                    }
+
+                    responseObserver.onNext(responseBuilder.build());
+                    responseObserver.onCompleted();
+                }
+            });
+        }
+    }
+
 }

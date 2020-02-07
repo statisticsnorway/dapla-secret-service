@@ -6,6 +6,7 @@ import io.helidon.webserver.Routing;
 import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
 import no.ssb.dapla.secret.service.protobuf.PseudoKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,9 +18,11 @@ public class SecretServiceHttp implements Service {
     private static final Logger LOG = LoggerFactory.getLogger(SecretServiceHttp.class);
 
     final SecretRepository repository;
+    final AuthServiceFutureStub authService;
 
-    public SecretServiceHttp(SecretRepository repository) {
+    public SecretServiceHttp(SecretRepository repository, AuthServiceFutureStub authService) {
         this.repository = repository;
+        this.authService = authService;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package no.ssb.dapla.secret;
 
+import io.grpc.ManagedChannel;
 import io.helidon.config.Config;
 import io.helidon.grpc.server.GrpcRouting;
 import io.helidon.grpc.server.GrpcServer;
@@ -12,13 +13,17 @@ import io.helidon.webserver.accesslog.AccessLogSupport;
 import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.PoolOptions;
+import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
 import no.ssb.dapla.readiness.Readiness;
 import no.ssb.helidon.application.DefaultHelidonApplication;
+import no.ssb.helidon.application.HelidonApplication;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
 public class Application extends DefaultHelidonApplication {
@@ -30,8 +35,10 @@ public class Application extends DefaultHelidonApplication {
         LOG = LoggerFactory.getLogger(Application.class);
     }
 
-    public Application(Config config) {
+    public Application(Config config, AuthServiceFutureStub authService) {
         put(Config.class, config);
+
+        put(AuthServiceFutureStub.class, authService);
 
         // Initialize vertx postgres client
         PgPool pgPool = initPgPool(config.get("pgpool"));
@@ -59,7 +66,7 @@ public class Application extends DefaultHelidonApplication {
         put(SecretRepository.class, secretRepository);
 
         // Grpc Service
-        SecretServiceGrpc grpcService = new SecretServiceGrpc(secretRepository);
+        SecretServiceGrpc grpcService = new SecretServiceGrpc(secretRepository, authService);
         put(SecretServiceGrpc.class, grpcService);
 
         // Grpc Server
@@ -74,7 +81,7 @@ public class Application extends DefaultHelidonApplication {
         HealthService healthService = new HealthService(readiness, () -> get(WebServer.class));
 
         // HTTP Service
-        SecretServiceHttp httpService = new SecretServiceHttp(secretRepository);
+        SecretServiceHttp httpService = new SecretServiceHttp(secretRepository, authService);
         put(SecretServiceHttp.class, httpService);
 
         // Routing
@@ -132,5 +139,12 @@ public class Application extends DefaultHelidonApplication {
         PoolOptions poolOptions = new PoolOptions().setMaxSize(poolConfig.get("max-size").asInt().orElse(5));
 
         return PgPool.pool(connectOptions, poolOptions);
+    }
+
+    @Override
+    public CompletionStage<HelidonApplication> stop() {
+        return super.stop().thenCombine(
+                CompletableFuture.runAsync(() -> shutdownAndAwaitTermination((ManagedChannel) get(AuthServiceFutureStub.class).getChannel())), (application, aVoid) -> this
+        );
     }
 }
