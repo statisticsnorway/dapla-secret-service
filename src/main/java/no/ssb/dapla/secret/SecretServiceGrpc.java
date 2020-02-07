@@ -2,12 +2,12 @@ package no.ssb.dapla.secret;
 
 import io.grpc.stub.StreamObserver;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
-import no.ssb.dapla.secret.service.protobuf.CreateKeyRequest;
-import no.ssb.dapla.secret.service.protobuf.CreateKeyResponse;
-import no.ssb.dapla.secret.service.protobuf.DeleteKeyRequest;
-import no.ssb.dapla.secret.service.protobuf.DeleteKeyResponse;
-import no.ssb.dapla.secret.service.protobuf.GetKeyRequest;
-import no.ssb.dapla.secret.service.protobuf.GetKeyResponse;
+import no.ssb.dapla.secret.service.protobuf.CreateSecretRequest;
+import no.ssb.dapla.secret.service.protobuf.CreateSecretResponse;
+import no.ssb.dapla.secret.service.protobuf.DeleteSecretRequest;
+import no.ssb.dapla.secret.service.protobuf.DeleteSecretResponse;
+import no.ssb.dapla.secret.service.protobuf.GetSecretRequest;
+import no.ssb.dapla.secret.service.protobuf.GetSecretResponse;
 import no.ssb.dapla.secret.service.protobuf.SecretServiceGrpc.SecretServiceImplBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,52 +27,51 @@ public class SecretServiceGrpc extends SecretServiceImplBase {
     }
 
     @Override
-    public void getKey(GetKeyRequest request, StreamObserver<GetKeyResponse> responseObserver) {
-        String keyId = request.getKeyId();
-        repository.getKey(keyId)
+    public void getSecret(GetSecretRequest request, StreamObserver<GetSecretResponse> responseObserver) {
+        String secretId = request.getSecretId();
+        repository.getSecret(secretId)
                 .orTimeout(10, TimeUnit.SECONDS)
-                .thenAccept(pseudoKey -> {
-                    GetKeyResponse.Builder responseBuilder = GetKeyResponse.newBuilder();
-                    if (pseudoKey != null) {
-                        responseBuilder.setKey(pseudoKey);
-                        responseBuilder.setKeyId(keyId);
+                .thenAccept(secret -> {
+                    GetSecretResponse.Builder responseBuilder = GetSecretResponse.newBuilder();
+                    if (secret != null) {
+                        responseBuilder.setSecret(secret);
                     }
                     responseObserver.onNext(responseBuilder.build());
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
-                    LOG.error(String.format("Failed to get key with id: %s", keyId), throwable);
+                    LOG.error(String.format("Failed to get secret with id: %s", secretId), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });
     }
 
     @Override
-    public void createKey(CreateKeyRequest request, StreamObserver<CreateKeyResponse> responseObserver) {
-        String keyId = request.getKeyId();
-        repository.createKey(keyId, request.getKey())
+    public void createSecret(CreateSecretRequest request, StreamObserver<CreateSecretResponse> responseObserver) {
+        String secretId = request.getSecret().getId();
+        repository.createSecret(secretId, request.getSecret())
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenRun(() -> {
-                    responseObserver.onNext(CreateKeyResponse.newBuilder().setKeyId(keyId).build());
+                    responseObserver.onNext(CreateSecretResponse.newBuilder().setSecretId(secretId).build());
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
-                    LOG.error(String.format("Failed to create key with id: %s", keyId), throwable);
+                    LOG.error(String.format("Failed to create secret with id: %s", secretId), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });
     }
 
     @Override
-    public void deleteKey(DeleteKeyRequest request, StreamObserver<DeleteKeyResponse> responseObserver) {
-        repository.deleteKey(request.getKeyId())
+    public void deleteSecret(DeleteSecretRequest request, StreamObserver<DeleteSecretResponse> responseObserver) {
+        repository.deleteSecret(request.getSecretId())
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(rowsAffected -> {
-                    responseObserver.onNext(DeleteKeyResponse.newBuilder().setRowsAffected(rowsAffected).build());
+                    responseObserver.onNext(DeleteSecretResponse.newBuilder().setRowsAffected(rowsAffected).build());
                     responseObserver.onCompleted();
                 })
                 .exceptionally(throwable -> {
-                    LOG.error(String.format("Failed to delete key with id: %s", request.getKeyId()), throwable);
+                    LOG.error(String.format("Failed to delete secret with id: %s", request.getSecretId()), throwable);
                     responseObserver.onError(throwable);
                     return null;
                 });

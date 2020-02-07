@@ -6,7 +6,7 @@ import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowIterator;
 import io.vertx.sqlclient.Tuple;
-import no.ssb.dapla.secret.service.protobuf.PseudoKey;
+import no.ssb.dapla.secret.service.protobuf.Secret;
 import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 
 import java.util.concurrent.CompletableFuture;
@@ -20,8 +20,8 @@ public class SecretRepository {
         this.pgClient = pgClient;
     }
 
-    public CompletableFuture<Void> createKey(String id, PseudoKey key) {
-        JsonObject value = (JsonObject) Json.decodeValue(ProtobufJsonUtils.toString(key));
+    public CompletableFuture<Void> createSecret(String id, Secret secret) {
+        JsonObject value = (JsonObject) Json.decodeValue(ProtobufJsonUtils.toString(secret));
         CompletableFuture<Void> future = new CompletableFuture<>();
         pgClient.preparedQuery(
                 "INSERT INTO secret (id, document) VALUES($1, $2) ON CONFLICT (id) DO NOTHING",
@@ -36,8 +36,8 @@ public class SecretRepository {
         return future.orTimeout(5, TimeUnit.SECONDS);
     }
 
-    public CompletableFuture<PseudoKey> getKey(String id) {
-        CompletableFuture<PseudoKey> future = new CompletableFuture<>();
+    public CompletableFuture<Secret> getSecret(String id) {
+        CompletableFuture<Secret> future = new CompletableFuture<>();
         pgClient.preparedQuery(
                 "SELECT id, document FROM secret WHERE id = $1",
                 Tuple.tuple().addString(id),
@@ -52,14 +52,14 @@ public class SecretRepository {
                         return;
                     }
                     JsonObject document = iterator.next().get(JsonObject.class, 1);
-                    PseudoKey pseudoKey = ProtobufJsonUtils.toPojo(Json.encode(document), PseudoKey.class);
-                    future.complete(pseudoKey);
+                    Secret secret = ProtobufJsonUtils.toPojo(Json.encode(document), Secret.class);
+                    future.complete(secret);
                 }
         );
         return future.orTimeout(5, TimeUnit.SECONDS);
     }
 
-    public CompletableFuture<Integer> deleteKey(String id) {
+    public CompletableFuture<Integer> deleteSecret(String id) {
         CompletableFuture<Integer> future = new CompletableFuture<>();
         pgClient.preparedQuery("DELETE FROM secret WHERE id = $1",
                 Tuple.tuple().addString(id),
@@ -74,7 +74,7 @@ public class SecretRepository {
         return future.orTimeout(5, TimeUnit.SECONDS);
     }
 
-    CompletableFuture<Void> deleteAllKeys() {
+    CompletableFuture<Void> deleteAllSecrets() {
         CompletableFuture<Void> future = new CompletableFuture<>();
         pgClient.query("TRUNCATE TABLE secret",
                 asyncResult -> {

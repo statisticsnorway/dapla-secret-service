@@ -7,7 +7,7 @@ import io.helidon.webserver.ServerRequest;
 import io.helidon.webserver.ServerResponse;
 import io.helidon.webserver.Service;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
-import no.ssb.dapla.secret.service.protobuf.PseudoKey;
+import no.ssb.dapla.secret.service.protobuf.Secret;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,13 +28,13 @@ public class SecretServiceHttp implements Service {
     @Override
     public void update(Routing.Rules rules) {
         rules.get("/{secretId}", this::httpGet);
-        rules.post("/{secretId}", Handler.create(PseudoKey.class, this::httpPost));
+        rules.post("/{secretId}", Handler.create(Secret.class, this::httpPost));
         rules.delete("/{secretId}", this::httpDelete);
     }
 
     void httpGet(ServerRequest request, ServerResponse response) {
         String secretId = request.path().param("secretId");
-        repository.getKey(secretId)
+        repository.getSecret(secretId)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept(pseudoKey -> {
                     if (pseudoKey == null) {
@@ -50,9 +50,9 @@ public class SecretServiceHttp implements Service {
                 });
     }
 
-    void httpPost(ServerRequest request, ServerResponse response, PseudoKey pseudoKey) {
+    void httpPost(ServerRequest request, ServerResponse response, Secret secret) {
         String secretId = request.path().param("secretId");
-        repository.createKey(secretId, pseudoKey)
+        repository.createSecret(secretId, secret)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenRun(() -> {
                     response.headers().add("Location", String.format("/secret/%s", secretId));
@@ -67,7 +67,7 @@ public class SecretServiceHttp implements Service {
 
     void httpDelete(ServerRequest request, ServerResponse response) {
         String secretId = request.path().param("secretId");
-        repository.deleteKey(secretId)
+        repository.deleteSecret(secretId)
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenAccept((rowsAffected) -> {
                     if (rowsAffected < 1) {
