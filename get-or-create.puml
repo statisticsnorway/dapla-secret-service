@@ -1,0 +1,36 @@
+@startuml
+
+title getOrCreate
+
+actor "Client"
+participant "Secret Service"
+participant "Catalog"
+participant "Dataset Access"
+database "Postgres"
+
+"Client" -> "Secret Service" : getOrCreate(fullyQualifiedNS, Set<SecretDesc>)
+activate "Secret Service"
+
+"Secret Service" -> "Catalog" : mapNameToId(fullyQualifiedNS)
+activate "Catalog"
+"Catalog" --> "Secret Service": id
+deactivate "Catalog"
+
+"Secret Service" -> "Catalog" : getDatasetMeta(id)
+activate "Catalog"
+"Catalog" --> "Secret Service": datasetMeta
+deactivate "Catalog"
+
+"Secret Service" -> "Dataset Access": hasAccess(userId, datasetMeta)
+activate "Dataset Access"
+"Dataset Access" --> "Secret Service": ok
+deactivate "Dataset Access"
+
+"Secret Service" -> "Postgres": getOrCreateSecrets(Set<SecretDesc>)
+"Postgres" --> "Secret Service": Set<Secret>
+
+"Secret Service" --> "Client": Set<Secret>
+
+deactivate "Secret Service"
+
+@enduml
