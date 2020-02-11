@@ -30,7 +30,7 @@ class SecretServiceGrpcTest {
     }
 
     void repositoryCreate(String secretId, Secret secret) {
-        application.get(SecretRepository.class).createSecret(secretId, secret).join();
+        application.get(SecretRepository.class).createSecret(secret).join();
     }
 
 //    @Test

@@ -49,7 +49,7 @@ public class SecretServiceGrpc extends SecretServiceImplBase {
     @Override
     public void createSecret(CreateSecretRequest request, StreamObserver<CreateSecretResponse> responseObserver) {
         String secretId = request.getSecret().getId();
-        repository.createSecret(secretId, request.getSecret())
+        repository.createSecret(request.getSecret())
                 .orTimeout(10, TimeUnit.SECONDS)
                 .thenRun(() -> {
                     responseObserver.onNext(CreateSecretResponse.newBuilder().setSecretId(secretId).build());

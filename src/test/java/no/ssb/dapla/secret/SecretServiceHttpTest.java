@@ -5,10 +5,10 @@ import no.ssb.dapla.auth.dataset.protobuf.AccessCheckRequest;
 import no.ssb.dapla.auth.dataset.protobuf.AccessCheckResponse;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc;
 import no.ssb.dapla.secret.service.protobuf.Secret;
+import no.ssb.helidon.media.protobuf.ProtobufJsonUtils;
 import no.ssb.testing.helidon.GrpcMockRegistry;
 import no.ssb.testing.helidon.GrpcMockRegistryConfig;
 import no.ssb.testing.helidon.IntegrationTestExtension;
-import no.ssb.testing.helidon.ResponseHelper;
 import no.ssb.testing.helidon.TestClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,34 +43,45 @@ class SecretServiceHttpTest {
         return application.get(SecretRepository.class).getSecret(secretId).join();
     }
 
-    void repositoryCreate(String secretId, Secret secret) {
-        application.get(SecretRepository.class).createSecret(secretId, secret).join();
+    void repositoryCreate(Secret secret) {
+        application.get(SecretRepository.class).createSecret(secret).join();
     }
 
     @Test
-    void thatPostWorks() {
-        Secret keyToCreate = Secret.newBuilder()
-                .setId("id-secret-to-create")
-                .setContent("the-secret-to-create")
-                .setType("type-of-secret-to-create")
+    void thatCreateOrGetWorksWhenSecretAlreadyExists() {
+        Secret existingSecret = Secret.newBuilder()
+                .setId("id-exists")
+                .setContent("content-that-exists")
+                .setType("type-exists")
                 .build();
-        ResponseHelper<String> responseHelper = testClient.post("/secret/id-secret-to-create", keyToCreate).expect201Created();
+        repositoryCreate(existingSecret);
 
-        assertThat(responseHelper.response().headers().firstValue("Location")).contains("/secret/id-secret-to-create");
-        assertThat(repositoryGet("id-secret-to-create")).isEqualTo(keyToCreate);
+        String body = testClient
+                .post(
+                        "/secret/id-exists?namespace=/some/namespace&state=RAW&valuation=SENSITIVE&privilege=PSEUDONYMIZE",
+                        Secret.newBuilder().setId("id-exists").build()
+                )
+                .expect200Ok()
+                .body();
+
+        assertThat(ProtobufJsonUtils.toPojo(body, Secret.class)).isEqualTo(existingSecret);
     }
 
-//    @Test
-//    void thatPostDoesntUpsert() {
-//        PseudoKey initialKey = PseudoKey.newBuilder().setKey("key-inital").build();
-//        repositoryCreate("id-initial", initialKey);
-//
-//        PseudoKey newKey = PseudoKey.newBuilder().setKey("key-updated").build();
-//        ResponseHelper<String> responseHelper = testClient.post("/secret/id-initial", newKey).expect201Created();
-//
-//        assertThat(responseHelper.response().headers().firstValue("Location")).contains("/secret/id-initial");
-//        assertThat(repositoryGet("id-initial")).isEqualTo(initialKey);
-//    }
+    @Test
+    void thatCreateOrGetWorksWhenSecretDoesntExist() {
+        String body = testClient
+                .post(
+                        "/secret/id-non-existing?namespace=/some/namespace&state=RAW&valuation=SENSITIVE&privilege=PSEUDONYMIZE",
+                        Secret.newBuilder().setId("id-non-existing").setType("AES32").build()
+                )
+                .expect201Created()
+                .body();
+
+        Secret actual = repositoryGet("id-non-existing");
+        assertThat(actual.getId()).isEqualTo("id-non-existing");
+        assertThat(actual.getType()).isEqualTo("AES32");
+        assertThat(actual.getContent()).isEqualTo(ProtobufJsonUtils.toPojo(body, Secret.class).getContent());
+    }
 
 //    @Test
 //    void thatGetWorks() {
@@ -87,7 +98,7 @@ class SecretServiceHttpTest {
 
     @Test
     void thatDeleteWorks() {
-        repositoryCreate("id-to-delete", Secret.newBuilder().setId("key-to-delete").build());
+        repositoryCreate(Secret.newBuilder().setId("key-to-delete").build());
         testClient.delete("/secret/id-to-delete").expect200Ok();
         assertThat(repositoryGet("id-to-delete")).isNull();
     }

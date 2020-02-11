@@ -134,7 +134,7 @@ public class SecretServiceHttp implements Service {
                                     return;
                                 }
                                 Secret generated = SecretGenerator.generate(secretId, secret.getType());
-                                repository.createSecret(secretId, generated)
+                                repository.createSecret(generated)
                                         .orTimeout(10, TimeUnit.SECONDS)
                                         .thenRun(() -> {
                                             response.headers().add("Location", String.format("/secret/%s", secretId));
@@ -152,6 +152,7 @@ public class SecretServiceHttp implements Service {
                                 return null;
                             });
                 }
+                response.status(Http.Status.FORBIDDEN_403).send();
             }
             @Override
             public void onFailure(Throwable t) {
