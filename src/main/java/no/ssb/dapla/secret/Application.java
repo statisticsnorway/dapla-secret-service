@@ -1,6 +1,7 @@
 package no.ssb.dapla.secret;
 
 import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.helidon.config.Config;
 import io.helidon.grpc.server.GrpcRouting;
 import io.helidon.grpc.server.GrpcServer;
@@ -17,11 +18,13 @@ import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
 import no.ssb.dapla.readiness.Readiness;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.application.HelidonApplication;
+import no.ssb.helidon.application.HelidonGrpcWebTranscoding;
 import no.ssb.helidon.media.protobuf.ProtobufJsonSupport;
 import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
@@ -91,6 +94,16 @@ public class Application extends DefaultHelidonApplication {
                 .register(MetricsSupport.create())
                 .register(healthService)
                 .register("/secret", httpService)
+                .register("/rpc", new HelidonGrpcWebTranscoding(
+                        () -> ManagedChannelBuilder
+                                .forAddress("localhost", Optional.of(grpcserver)
+                                        .filter(GrpcServer::isRunning)
+                                        .map(GrpcServer::port)
+                                        .orElseThrow())
+                                .usePlaintext()
+                                .build(),
+                        grpcService
+                ))
                 .build();
         put(Routing.class, routing);
 
