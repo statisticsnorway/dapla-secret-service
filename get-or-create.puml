@@ -8,15 +8,10 @@ participant "Catalog"
 participant "Dataset Access"
 database "Postgres"
 
-"Client" -> "Secret Service" : getOrCreate(fullyQualifiedNS, Set<SecretDesc>)
+"Client" -> "Secret Service" : getOrCreate(datasetPath, Set<SecretDesc>)
 activate "Secret Service"
 
-"Secret Service" -> "Catalog" : mapNameToId(fullyQualifiedNS)
-activate "Catalog"
-"Catalog" --> "Secret Service": id
-deactivate "Catalog"
-
-"Secret Service" -> "Catalog" : getDatasetMeta(id)
+"Secret Service" -> "Catalog" : getByName(datasetPath)
 activate "Catalog"
 "Catalog" --> "Secret Service": datasetMeta
 deactivate "Catalog"
