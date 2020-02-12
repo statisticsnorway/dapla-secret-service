@@ -15,6 +15,7 @@ import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.PoolOptions;
 import no.ssb.dapla.auth.dataset.protobuf.AuthServiceGrpc.AuthServiceFutureStub;
+import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc;
 import no.ssb.dapla.readiness.Readiness;
 import no.ssb.helidon.application.DefaultHelidonApplication;
 import no.ssb.helidon.application.HelidonApplication;
@@ -38,10 +39,10 @@ public class Application extends DefaultHelidonApplication {
         LOG = LoggerFactory.getLogger(Application.class);
     }
 
-    public Application(Config config, AuthServiceFutureStub authService) {
+    public Application(Config config, AuthServiceFutureStub authService, CatalogServiceGrpc.CatalogServiceFutureStub catalogService) {
         put(Config.class, config);
-
         put(AuthServiceFutureStub.class, authService);
+        put(CatalogServiceGrpc.CatalogServiceFutureStub.class, catalogService);
 
         // Initialize vertx postgres client
         PgPool pgPool = initPgPool(config.get("pgpool"));
@@ -69,17 +70,17 @@ public class Application extends DefaultHelidonApplication {
         put(SecretRepository.class, secretRepository);
 
         // Grpc Service
-        SecretServiceGrpc grpcService = new SecretServiceGrpc(secretRepository, authService);
+        SecretServiceGrpc grpcService = new SecretServiceGrpc(secretRepository, authService, catalogService);
         put(SecretServiceGrpc.class, grpcService);
 
         // Grpc Server
-        GrpcServer grpcserver = GrpcServer.create(
+        GrpcServer grpcServer = GrpcServer.create(
                 GrpcServerConfiguration.create(config.get("grpcserver")),
                 GrpcRouting.builder()
                         .register(grpcService)
                         .build()
         );
-        put(GrpcServer.class, grpcserver);
+        put(GrpcServer.class, grpcServer);
 
         HealthService healthService = new HealthService(readiness, () -> get(WebServer.class));
 
@@ -96,7 +97,7 @@ public class Application extends DefaultHelidonApplication {
                 .register("/secret", httpService)
                 .register("/rpc", new HelidonGrpcWebTranscoding(
                         () -> ManagedChannelBuilder
-                                .forAddress("localhost", Optional.of(grpcserver)
+                                .forAddress("localhost", Optional.of(grpcServer)
                                         .filter(GrpcServer::isRunning)
                                         .map(GrpcServer::port)
                                         .orElseThrow())

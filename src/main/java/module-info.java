@@ -24,6 +24,7 @@ module no.ssb.dapla.secret {
     requires io.helidon.health.checks;
 
     requires no.ssb.dapla.secret.service.protobuf;
+    requires no.ssb.dapla.catalog.protobuf;
     requires no.ssb.dapla.auth.dataset.protobuf;
     requires no.ssb.helidon.media.protobuf.json.server;
     requires grpc.protobuf;

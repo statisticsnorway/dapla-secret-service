@@ -30,3 +30,7 @@ flyway:
 auth-service:
   host: localhost
   port: 20108
+
+catalog-service:
+  host: localhost
+  port: 20118
