@@ -11,15 +11,13 @@ public class SecretGenerator {
         int keyLength = 32;
         try {
             keyLength = Integer.parseInt(type.replace("AES", ""));
-        }
-        catch (Exception e) { /* swallow */ }
+        } catch (Exception e) { /* swallow */ }
         try {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
             keyGen.init(keyLength);
             SecretKey secretKey = keyGen.generateKey();
             return Secret.newBuilder().setId(secretId).setType(type).setContent(secretKey.toString()).build();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(String.format("Unable to create secret of type %s", type), e);
         }
     }
