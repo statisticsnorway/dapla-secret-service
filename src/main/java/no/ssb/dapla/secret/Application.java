@@ -84,17 +84,12 @@ public class Application extends DefaultHelidonApplication {
 
         HealthService healthService = new HealthService(readiness, () -> get(WebServer.class));
 
-        // HTTP Service
-        SecretServiceHttp httpService = new SecretServiceHttp(secretRepository, authService);
-        put(SecretServiceHttp.class, httpService);
-
         // Routing
         Routing routing = Routing.builder()
                 .register(AccessLogSupport.create(config.get("webserver.access-log")))
                 .register(ProtobufJsonSupport.create())
                 .register(MetricsSupport.create())
                 .register(healthService)
-                .register("/secret", httpService)
                 .register("/rpc", new HelidonGrpcWebTranscoding(
                         () -> ManagedChannelBuilder
                                 .forAddress("localhost", Optional.of(grpcServer)
