@@ -13,6 +13,7 @@ import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc.CatalogServiceFutureStub
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.GetByNameDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetByNameDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.SecretPseudoConfigItem;
 import no.ssb.dapla.secret.service.protobuf.CreateOrGetSecretsRequest;
 import no.ssb.dapla.secret.service.protobuf.CreateOrGetSecretsResponse;
 import no.ssb.dapla.secret.service.protobuf.CreateSecretRequest;
@@ -51,6 +52,44 @@ public class SecretServiceGrpc extends SecretServiceImplBase {
     }
 
     @Override
+    public void getSecrets(GetSecretsRequest request, StreamObserver<GetSecretsResponse> responseObserver) {
+        String userId = "userId"; //TODO: Extract from request
+        String datasetPath = request.getDatasetPath();
+        getDatasetMetaByPath(datasetPath)
+                .orTimeout(10, TimeUnit.SECONDS)
+                .thenAccept(dataset -> {
+                    hasAccess(userId, datasetPath, dataset.getState().name(), dataset.getValuation().name())
+                            .thenAccept(hasAccess -> {
+                                if (!hasAccess) {
+                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
+                                    return;
+                                }
+                                getSecrets(dataset.getPseudoConfig().getSecretsList())
+                                        .thenAccept(secrets -> {
+                                            responseObserver.onNext(GetSecretsResponse.newBuilder().addAllSecrets(secrets).build());
+                                            responseObserver.onCompleted();
+                                        });
+                            });
+                })
+                .exceptionally(throwable -> {
+                    LOG.error("Failed during getSecrets", throwable);
+                    responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                    return null;
+                });
+    }
+
+    private CompletableFuture<Set<Secret>> getSecrets(List<SecretPseudoConfigItem> pseudoConfigItems) {
+        CompletableFuture<Set<Secret>> future = new CompletableFuture<>();
+        repository.getSecrets(pseudoConfigItems.stream().map(SecretPseudoConfigItem::getId).toArray(String[]::new))
+                .thenAccept(future::complete)
+                .exceptionally(throwable -> {
+                    future.completeExceptionally(throwable);
+                    return null;
+                });
+        return future;
+    }
+
+    @Override
     public void createOrGetSecrets(CreateOrGetSecretsRequest request, StreamObserver<CreateOrGetSecretsResponse> responseObserver) {
         String userId = "userId"; //TODO: Extract from request
         String datasetPath = request.getDatasetPath();
@@ -73,7 +112,7 @@ public class SecretServiceGrpc extends SecretServiceImplBase {
                             });
                 })
                 .exceptionally(throwable -> {
-                    LOG.error("Failed during createOrGet", throwable);
+                    LOG.error("Failed during createOrGetSecrets", throwable);
                     responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
                     return null;
                 });
@@ -163,11 +202,6 @@ public class SecretServiceGrpc extends SecretServiceImplBase {
                     return null;
                 });
         return future;
-    }
-
-    @Override
-    public void getSecrets(GetSecretsRequest request, StreamObserver<GetSecretsResponse> responseObserver) {
-        super.getSecrets(request, responseObserver);
     }
 
     @Override
