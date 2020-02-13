@@ -13,6 +13,8 @@ import no.ssb.dapla.catalog.protobuf.CatalogServiceGrpc.CatalogServiceFutureStub
 import no.ssb.dapla.catalog.protobuf.Dataset;
 import no.ssb.dapla.catalog.protobuf.GetByNameDatasetRequest;
 import no.ssb.dapla.catalog.protobuf.GetByNameDatasetResponse;
+import no.ssb.dapla.catalog.protobuf.MapNameToIdRequest;
+import no.ssb.dapla.catalog.protobuf.MapNameToIdResponse;
 import no.ssb.dapla.catalog.protobuf.SecretPseudoConfigItem;
 import no.ssb.dapla.secret.service.protobuf.CreateOrGetSecretsRequest;
 import no.ssb.dapla.secret.service.protobuf.CreateOrGetSecretsResponse;
@@ -29,6 +31,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -78,46 +81,6 @@ public class SecretServiceGrpc extends SecretServiceImplBase {
                 });
     }
 
-    private CompletableFuture<Set<Secret>> getSecrets(List<SecretPseudoConfigItem> pseudoConfigItems) {
-        CompletableFuture<Set<Secret>> future = new CompletableFuture<>();
-        repository.getSecrets(pseudoConfigItems.stream().map(SecretPseudoConfigItem::getId).toArray(String[]::new))
-                .thenAccept(future::complete)
-                .exceptionally(throwable -> {
-                    future.completeExceptionally(throwable);
-                    return null;
-                });
-        return future;
-    }
-
-    @Override
-    public void createOrGetSecrets(CreateOrGetSecretsRequest request, StreamObserver<CreateOrGetSecretsResponse> responseObserver) {
-        String userId = "userId"; //TODO: Extract from request
-        String datasetPath = request.getDatasetPath();
-        String datasetState = request.getDatasetState();
-        String datasetValuation = request.getDatasetValuation();
-        getDatasetMetaByPath(datasetPath)
-                .orTimeout(10, TimeUnit.SECONDS)
-                .thenAccept(dataset -> {
-                    hasAccess(userId, datasetPath, datasetState, datasetValuation)
-                            .thenAccept(hasAccess -> {
-                                if (!hasAccess) {
-                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
-                                    return;
-                                }
-                                createOrGetSecrets(request.getSecretRefsList())
-                                        .thenAccept(secrets -> {
-                                            responseObserver.onNext(CreateOrGetSecretsResponse.newBuilder().addAllSecrets(secrets).build());
-                                            responseObserver.onCompleted();
-                                        });
-                            });
-                })
-                .exceptionally(throwable -> {
-                    LOG.error("Failed during createOrGetSecrets", throwable);
-                    responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
-                    return null;
-                });
-    }
-
     private CompletableFuture<Dataset> getDatasetMetaByPath(String datasetPath) {
 
         GetByNameDatasetRequest request = GetByNameDatasetRequest.newBuilder().addAllName(List.of(datasetPath.split("/"))).build();
@@ -139,6 +102,73 @@ public class SecretServiceGrpc extends SecretServiceImplBase {
             }
         }, MoreExecutors.directExecutor());
 
+        return future;
+    }
+
+    private CompletableFuture<Set<Secret>> getSecrets(List<SecretPseudoConfigItem> pseudoConfigItems) {
+        CompletableFuture<Set<Secret>> future = new CompletableFuture<>();
+        repository.getSecrets(pseudoConfigItems.stream().map(SecretPseudoConfigItem::getId).toArray(String[]::new))
+                .thenAccept(future::complete)
+                .exceptionally(throwable -> {
+                    future.completeExceptionally(throwable);
+                    return null;
+                });
+        return future;
+    }
+
+    @Override
+    public void createOrGetSecrets(CreateOrGetSecretsRequest request, StreamObserver<CreateOrGetSecretsResponse> responseObserver) {
+        String userId = "userId"; //TODO: Extract from request
+        String datasetPath = request.getDatasetPath();
+        String datasetState = request.getDatasetState();
+        String datasetValuation = request.getDatasetValuation();
+        mapDatasetPathToId(datasetPath)
+                .orTimeout(10, TimeUnit.SECONDS)
+                .thenRun(() -> {
+                    hasAccess(userId, datasetPath, datasetState, datasetValuation)
+                            .thenAccept(hasAccess -> {
+                                if (!hasAccess) {
+                                    responseObserver.onError(new StatusException(Status.PERMISSION_DENIED));
+                                    return;
+                                }
+                                createOrGetSecrets(request.getSecretRefsList())
+                                        .thenAccept(secrets -> {
+                                            responseObserver.onNext(CreateOrGetSecretsResponse.newBuilder().addAllSecrets(secrets).build());
+                                            responseObserver.onCompleted();
+                                        });
+                            });
+                })
+                .exceptionally(throwable -> {
+                    LOG.error("Failed during createOrGetSecrets", throwable);
+                    responseObserver.onError(new StatusException(Status.fromThrowable(throwable)));
+                    return null;
+                });
+    }
+
+    private CompletableFuture<String> mapDatasetPathToId(String datasetPath) {
+
+        MapNameToIdRequest request = MapNameToIdRequest.newBuilder().addAllName(Arrays.asList(datasetPath.split("/"))).build();
+        CompletableFuture<String> future = new CompletableFuture<>();
+
+        Futures.addCallback(
+                catalogService.mapNameToId(request),
+                new FutureCallback<>() {
+                    @Override
+                    public void onSuccess(@Nullable MapNameToIdResponse result) {
+                        if (result == null || result.getId().isEmpty()) {
+                            future.completeExceptionally(new StatusException(Status.NOT_FOUND));
+                            return;
+                        }
+                        future.complete(result.getId());
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                        future.completeExceptionally(t);
+                    }
+                },
+                MoreExecutors.directExecutor()
+        );
         return future;
     }
 
