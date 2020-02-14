@@ -1,5 +1,6 @@
 package no.ssb.dapla.secret;
 
+import com.google.protobuf.ByteString;
 import no.ssb.dapla.secret.service.protobuf.Secret;
 
 import javax.crypto.KeyGenerator;
@@ -16,7 +17,7 @@ public class SecretGenerator {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
             keyGen.init(keyLength);
             SecretKey secretKey = keyGen.generateKey();
-            return Secret.newBuilder().setId(secretId).setType(type).setContent(secretKey.toString()).build();
+            return Secret.newBuilder().setId(secretId).setType(type).setContent(ByteString.copyFrom(secretKey.getEncoded())).build();
         } catch (Exception e) {
             throw new RuntimeException(String.format("Unable to create secret of type %s", type), e);
         }
